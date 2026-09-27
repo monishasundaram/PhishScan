@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phishing URL Detector</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #FAFAF9;
+    --surface: #FFFFFF;
+    --border: #E3E1DB;
+    --text: #16171A;
+    --text-muted: #6B6E76;
+    --accent: #1D3557;
+    --danger: #B3261E;
+    --danger-bg: #FBEAE9;
+    --safe: #1F7A4C;
+    --safe-bg: #EAF4EE;
+    --warn: #9A6B00;
+    --radius: 6px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: 'IBM Plex Sans', system-ui, sans-serif;
+    font-size: 15px; line-height: 1.55;
+  }
+  .mono { font-family: 'IBM Plex Mono', ui-monospace, monospace; }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 40px 24px 80px; }
+
+  header { display: flex; align-items: baseline; justify-content: space-between;
+    border-bottom: 1px solid var(--border); padding-bottom: 16px; margin-bottom: 32px; }
+  header h1 { font-size: 17px; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
+  header .meta { font-size: 12px; color: var(--text-muted); }
+
+  .scan-form { display: flex; gap: 8px; }
+  input[type="text"] {
+    flex: 1; font-family: 'IBM Plex Mono', monospace; font-size: 14px;
+    padding: 11px 14px; border: 1px solid var(--border); border-radius: var(--radius);
+    background: var(--surface); color: var(--text);
+  }
+  input[type="text"]:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+  button.primary {
+    font-family: inherit; font-size: 14px; font-weight: 500; padding: 11px 20px;
+    background: var(--accent); color: #fff; border: none; border-radius: var(--radius);
+    cursor: pointer;
+  }
+  button.primary:hover { background: #16283f; }
+  button.primary:disabled { opacity: .6; cursor: default; }
+
+  .toggle-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 13px; color: var(--text-muted); }
+  .toggle-row input { accent-color: var(--accent); }
+
+  section.result { margin-top: 40px; display: none; }
+  .verdict-line { display: flex; align-items: baseline; gap: 14px; }
+  .verdict-word { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
+  .verdict-word.phishing { color: var(--danger); }
+  .verdict-word.legitimate { color: var(--safe); }
+  .risk-num { font-family: 'IBM Plex Mono', monospace; font-size: 15px; color: var(--text-muted); }
+  .risk-bar-track { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+  .risk-bar-fill { height: 100%; border-radius: 3px; }
+  .scanned-url { margin-top: 10px; font-size: 13px; color: var(--text-muted); word-break: break-all; }
+
+  h2.section-label { font-size: 13px; font-weight: 600; color: var(--text); margin: 28px 0 10px; }
+  ul.reasons { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--border); }
+  ul.reasons li { padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 13.5px; display: flex; gap: 8px; }
+  ul.reasons li::before { content: "–"; color: var(--text-muted); flex-shrink: 0; }
+
+  .shap-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; font-size: 13px; }
+  .shap-label { width: 150px; flex-shrink: 0; color: var(--text-muted); }
+  .shap-bar-track { flex: 1; background: var(--border); border-radius: 3px; height: 8px; overflow: hidden; }
+  .shap-bar-fill { height: 100%; border-radius: 3px; }
+  .shap-pct { width: 78px; flex-shrink: 0; text-align: right; color: var(--text-muted); font-family: 'IBM Plex Mono', monospace; font-size: 12px; }
+
+  .feedback-row { display: flex; align-items: center; gap: 10px; margin-top: 20px; font-size: 13px; color: var(--text-muted); }
+  button.ghost {
+    font-family: inherit; font-size: 12.5px; padding: 6px 12px; background: var(--surface);
+    border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer; color: var(--text);
+  }
+  button.ghost:hover { border-color: var(--accent); color: var(--accent); }
+
+  .divider { border: none; border-top: 1px solid var(--border); margin: 48px 0 28px; }
+
+  .split { display: grid; grid-template-columns: 1.2fr 1fr; gap: 40px; }
+  @media (max-width: 700px) { .split { grid-template-columns: 1fr; } }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table th { text-align: left; font-weight: 500; color: var(--text-muted); font-size: 11.5px;
+    padding: 0 0 8px; border-bottom: 1px solid var(--border); }
+  table td { padding: 9px 0; border-bottom: 1px solid var(--border); vertical-align: top; }
+  table td.url-cell { font-family: 'IBM Plex Mono', monospace; font-size: 12px; max-width: 260px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .badge { display: inline-block; font-size: 11px; font-weight: 500; padding: 2px 7px; border-radius: 3px; }
+  .badge.phishing { background: var(--danger-bg); color: var(--danger); }
+  .badge.legitimate { background: var(--safe-bg); color: var(--safe); }
+  .history-scroll { max-height: 320px; overflow-y: auto; }
+
+  .empty { color: var(--text-muted); font-size: 13px; padding: 20px 0; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header>
+    <h1>Phishing URL Detector</h1>
+    <span class="meta mono" id="model-badge">loading…</span>
+  </header>
+
+  <form id="scan-form" class="scan-form">
+    <input type="text" id="url-input" placeholder="paste a url to check, e.g. https://example.com/login" required>
+    <button type="submit" class="primary" id="scan-btn">Check</button>
+  </form>
+  <label class="toggle-row">
+    <input type="checkbox" id="deep-scan-toggle" checked>
+    deep scan — checks domain age and SSL, adds a couple seconds
+  </label>
+
+  <section class="result" id="result-section">
+    <div class="verdict-line">
+      <span class="verdict-word" id="verdict-word">—</span>
+      <span class="risk-num" id="risk-num">—</span>
+    </div>
+    <div class="risk-bar-track"><div class="risk-bar-fill" id="risk-bar-fill"></div></div>
+    <div class="scanned-url mono" id="url-echo"></div>
+
+    <h2 class="section-label">Why</h2>
+    <ul class="reasons" id="reasons-list"></ul>
+
+    <div id="shap-section" style="display:none;">
+      <h2 class="section-label">Model signal</h2>
+      <div id="shap-list"></div>
+    </div>
+
+    <div class="feedback-row">
+      <span>Was this right?</span>
+      <button class="ghost" onclick="sendFeedback('legitimate')">Yes, safe</button>
+      <button class="ghost" onclick="sendFeedback('phishing')">No, it's phishing</button>
+      <span id="feedback-ack"></span>
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <div class="split">
+    <div>
+      <h2 class="section-label">History</h2>
+      <div class="history-scroll">
+        <table>
+          <thead><tr><th>URL</th><th>Verdict</th><th>Score</th></tr></thead>
+          <tbody id="history-body"></tbody>
+        </table>
+      </div>
+      <div class="empty" id="history-empty" style="display:none;">No scans yet.</div>
+    </div>
+    <div>
+      <h2 class="section-label">Scans over time</h2>
+      <canvas id="timeseries-chart" height="180"></canvas>
+    </div>
+  </div>
+
+</div>
+
+<script>
+let lastScanId = null;
+let tsChart;
+
+async function loadHealth() {
+  const r = await fetch('/api/v1/health');
+  const d = await r.json();
+  document.getElementById('model-badge').textContent = `${d.model} · threshold ${d.threshold}`;
+}
+
+async function scanUrl(url, deepScan) {
+  const res = await fetch('/api/v1/scan', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url, deep_scan: deepScan })
+  });
+  if (!res.ok) throw new Error((await res.json()).error || 'Scan failed');
+  return res.json();
+}
+
+function showResult(data) {
+  lastScanId = data.scan_id;
+  document.getElementById('result-section').style.display = 'block';
+
+  const word = document.getElementById('verdict-word');
+  const isPhish = data.prediction === 'phishing';
+  word.textContent = isPhish ? 'Phishing' : 'Legitimate';
+  word.className = 'verdict-word ' + data.prediction;
+
+  document.getElementById('risk-num').textContent = data.risk_score + '% risk';
+  document.getElementById('url-echo').textContent = data.url;
+
+  const fill = document.getElementById('risk-bar-fill');
+  fill.style.width = data.risk_score + '%';
+  fill.style.background = isPhish ? 'var(--danger)' : 'var(--safe)';
+
+  const list = document.getElementById('reasons-list');
+  list.innerHTML = '';
+  data.reasons.forEach(r => {
+    const li = document.createElement('li');
+    li.textContent = r;
+    list.appendChild(li);
+  });
+
+  renderShapBreakdown(data.shap_explanation || []);
+  document.getElementById('feedback-ack').textContent = '';
+}
+
+function renderShapBreakdown(items) {
+  const section = document.getElementById('shap-section');
+  const list = document.getElementById('shap-list');
+  list.innerHTML = '';
+  if (!items.length) { section.style.display = 'none'; return; }
+  section.style.display = 'block';
+  items.forEach(item => {
+    const row = document.createElement('div');
+    row.className = 'shap-row';
+    const color = item.direction === 'increases_risk' ? 'var(--danger)' : 'var(--safe)';
+    const sign = item.direction === 'increases_risk' ? '+' : '−';
+    row.innerHTML = `
+      <span class="shap-label">${item.label}</span>
+      <div class="shap-bar-track"><div class="shap-bar-fill" style="width:${item.contribution_pct}%;background:${color};"></div></div>
+      <span class="shap-pct">${sign}${item.contribution_pct}%</span>`;
+    list.appendChild(row);
+  });
+}
+
+async function sendFeedback(label) {
+  if (!lastScanId) return;
+  await fetch('/api/v1/feedback', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ scan_id: lastScanId, user_label: label })
+  });
+  document.getElementById('feedback-ack').textContent = 'Recorded, thanks.';
+}
+
+async function loadHistory() {
+  const res = await fetch('/api/v1/scans?limit=25');
+  const rows = await res.json();
+  const body = document.getElementById('history-body');
+  const empty = document.getElementById('history-empty');
+  body.innerHTML = '';
+  if (!rows.length) { empty.style.display = 'block'; return; }
+  empty.style.display = 'none';
+  rows.forEach(r => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td class="url-cell" title="${r.url}">${r.url}</td>
+      <td><span class="badge ${r.prediction}">${r.prediction}</span></td>
+      <td class="mono">${r.risk_score}%</td>`;
+    body.appendChild(tr);
+  });
+}
+
+async function loadTimeseries() {
+  const res = await fetch('/api/v1/stats/timeseries');
+  const rows = await res.json();
+  const ctx = document.getElementById('timeseries-chart');
+  if (tsChart) tsChart.destroy();
+  tsChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: rows.map(r => r.day),
+      datasets: [
+        { label: 'Phishing', data: rows.map(r => r.phishing), backgroundColor: '#B3261E' },
+        { label: 'Legitimate', data: rows.map(r => r.legitimate), backgroundColor: '#1F7A4C' }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { family: 'IBM Plex Sans', size: 11 }, color: '#6B6E76' } } },
+      scales: {
+        x: { stacked: true, ticks: { color: '#6B6E76', font: { size: 10 } }, grid: { display: false } },
+        y: { stacked: true, ticks: { color: '#6B6E76', font: { size: 10 } }, grid: { color: '#E3E1DB' } }
+      }
+    }
+  });
+}
+
+document.getElementById('scan-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const url = document.getElementById('url-input').value.trim();
+  const deep = document.getElementById('deep-scan-toggle').checked;
+  const btn = document.getElementById('scan-btn');
+  btn.disabled = true; btn.textContent = 'Checking…';
+  try {
+    const data = await scanUrl(url, deep);
+    showResult(data);
+    await loadHistory();
+    await loadTimeseries();
+  } catch (err) {
+    alert(err.message);
+  } finally {
+    btn.disabled = false; btn.textContent = 'Check';
+  }
+});
+
+loadHealth();
+loadHistory();
+loadTimeseries();
+</script>
+</body>
+</html>
