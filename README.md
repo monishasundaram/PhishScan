@@ -147,4 +147,4 @@ phishing-detector/
 
 ## License
 
-[MIT](LICENSE)
+Created only for Educational purpose
