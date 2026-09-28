@@ -3,309 +3,378 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Phishing URL Detector</title>
+<title>PhishScan — URL Threat Analysis</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <style>
   :root {
-    --bg: #FAFAF9;
-    --surface: #FFFFFF;
-    --border: #E3E1DB;
-    --text: #16171A;
-    --text-muted: #6B6E76;
-    --accent: #1D3557;
-    --danger: #B3261E;
-    --danger-bg: #FBEAE9;
-    --safe: #1F7A4C;
-    --safe-bg: #EAF4EE;
-    --warn: #9A6B00;
-    --radius: 6px;
+    --bg:#080E1F; --side:#0B1430; --panel:#0F1934; --panel2:#142042; --line:#1C2A4E;
+    --text:#E7EDFB; --muted:#7D8BB0;
+    --blue:#3B76FF; --green:#22C58B; --red:#F0506E; --purple:#8B6CFF; --orange:#FF8F45; --yellow:#F6BE3A;
+    --r:14px;
   }
-  @media (prefers-reduced-motion: reduce) {
-    * { transition: none !important; animation: none !important; }
-  }
-  * { box-sizing: border-box; }
+  * { box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  @media (prefers-reduced-motion:reduce) { html{scroll-behavior:auto} *{transition:none!important;animation:none!important} }
   body {
-    margin: 0; background: var(--bg); color: var(--text);
-    font-family: 'IBM Plex Sans', system-ui, sans-serif;
-    font-size: 15px; line-height: 1.55;
+    margin:0; background:var(--bg); color:var(--text);
+    font:14px/1.5 'Manrope',system-ui,sans-serif;
+    background-image:radial-gradient(rgba(80,120,255,.07) 1px,transparent 1px); background-size:22px 22px;
   }
-  .mono { font-family: 'IBM Plex Mono', ui-monospace, monospace; }
-  .wrap { max-width: 860px; margin: 0 auto; padding: 40px 24px 80px; }
+  .mono { font-family:'JetBrains Mono',ui-monospace,monospace; }
+  .muted { color:var(--muted); }
 
-  header { display: flex; align-items: baseline; justify-content: space-between;
-    border-bottom: 1px solid var(--border); padding-bottom: 16px; margin-bottom: 32px; }
-  header h1 { font-size: 17px; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
-  header .meta { font-size: 12px; color: var(--text-muted); }
+  .app { display:grid; grid-template-columns:230px 1fr; min-height:100vh; }
 
-  .scan-form { display: flex; gap: 8px; }
-  input[type="text"] {
-    flex: 1; font-family: 'IBM Plex Mono', monospace; font-size: 14px;
-    padding: 11px 14px; border: 1px solid var(--border); border-radius: var(--radius);
-    background: var(--surface); color: var(--text);
+  /* sidebar */
+  .side { position:sticky; top:0; height:100vh; background:linear-gradient(180deg,#0C1738,#08112A);
+    border-right:1px solid var(--line); padding:24px 16px; display:flex; flex-direction:column; gap:28px; }
+  .brand { display:flex; align-items:center; gap:10px; font-weight:800; letter-spacing:.05em; font-size:15px; padding:0 8px; }
+  .brand-mark { width:30px; height:30px; border-radius:9px; background:linear-gradient(135deg,var(--blue),var(--purple)); display:grid; place-items:center; }
+  .brand-mark svg { width:17px; height:17px; stroke:#fff; fill:none; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round; }
+  nav { display:grid; gap:4px; }
+  nav a { display:flex; align-items:center; gap:12px; padding:10px 12px; border-radius:10px; color:var(--muted);
+    text-decoration:none; font-weight:600; font-size:13px; }
+  nav a svg { width:17px; height:17px; stroke:currentColor; fill:none; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+  nav a:hover { color:var(--text); background:rgba(255,255,255,.04); }
+  nav a.active { color:var(--text); background:rgba(59,118,255,.14); box-shadow:inset 3px 0 0 var(--blue); }
+  .model-card { margin-top:auto; background:linear-gradient(160deg,#2456e8,#3b76ff); border-radius:14px; padding:16px; }
+  .model-card .k { font-size:11px; opacity:.8; font-weight:600; }
+  .model-card .v { font-size:15px; font-weight:800; text-transform:capitalize; margin:2px 0 10px; }
+  .model-card .t { font-size:11.5px; background:rgba(255,255,255,.16); border-radius:8px; padding:6px 9px; }
+
+  /* main */
+  .main { padding:26px 32px 60px; min-width:0; max-width:1500px; }
+  .topbar { display:flex; align-items:center; justify-content:space-between; margin-bottom:22px; }
+  .topbar h1 { font-size:22px; margin:0; font-weight:800; }
+  .status { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--muted); font-weight:600; }
+  .dot { width:8px; height:8px; border-radius:50%; background:var(--green); box-shadow:0 0 0 4px rgba(34,197,139,.15); }
+
+  .stats { display:grid; grid-template-columns:repeat(5,1fr); gap:14px; margin-bottom:16px; }
+  .stat { background:var(--panel); border:1px solid var(--line); border-radius:var(--r); padding:16px;
+    display:flex; align-items:center; justify-content:space-between; }
+  .stat .lbl { color:var(--muted); font-size:12px; font-weight:600; }
+  .stat .val { font-size:24px; font-weight:800; margin-top:2px; line-height:1.2; }
+  .ico { width:40px; height:40px; border-radius:11px; display:grid; place-items:center; flex-shrink:0; }
+  .ico svg { width:20px; height:20px; stroke:#fff; fill:none; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round; }
+
+  .grid2 { display:grid; grid-template-columns:2fr 1fr; gap:16px; margin-bottom:16px; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:var(--r); padding:20px; min-width:0; }
+  .panel h2 { margin:0 0 14px; font-size:15px; font-weight:700; display:flex; justify-content:space-between; align-items:baseline; gap:4px 12px; flex-wrap:wrap; }
+  .panel h2 small { font-weight:500; color:var(--muted); font-size:12px; }
+
+  /* scan */
+  .scan-form { display:flex; gap:10px; }
+  .scan-form input[type=text] { flex:1; min-width:0; background:var(--bg); border:1px solid var(--line); color:var(--text);
+    border-radius:11px; padding:13px 15px; font:500 13.5px 'JetBrains Mono',monospace; }
+  input:focus { outline:2px solid var(--blue); outline-offset:1px; }
+  .btn { background:linear-gradient(135deg,var(--blue),#5b8bff); color:#fff; border:0; border-radius:11px; padding:0 26px;
+    font:700 13.5px 'Manrope',sans-serif; cursor:pointer; }
+  .btn:hover { filter:brightness(1.08); }
+  .btn:disabled { opacity:.6; cursor:default; }
+  .toggle { display:flex; gap:8px; align-items:center; margin-top:10px; color:var(--muted); font-size:12.5px; }
+  .toggle input { accent-color:var(--blue); }
+
+  .placeholder { margin-top:22px; padding:26px; border:1px dashed var(--line); border-radius:12px; color:var(--muted); font-size:13px; text-align:center; }
+  #result { display:none; }
+  .verdict { display:flex; align-items:center; gap:12px; margin:20px 0 4px; }
+  .pill { font-weight:800; font-size:12.5px; padding:5px 13px; border-radius:999px; letter-spacing:.04em; text-transform:uppercase; }
+  .pill.phishing, .tag.phishing { background:rgba(240,80,110,.15); color:var(--red); }
+  .pill.legitimate, .tag.legitimate { background:rgba(34,197,139,.15); color:var(--green); }
+  .url-echo { color:var(--muted); font-size:12px; word-break:break-all; }
+  .sub { color:var(--muted); font-size:12px; font-weight:700; margin:20px 0 8px; }
+  ul.reasons { list-style:none; margin:0; padding:0; display:grid; gap:6px; }
+  ul.reasons li { background:var(--panel2); border-radius:9px; padding:9px 12px; font-size:13px; border-left:3px solid var(--muted); }
+  ul.reasons.phishing li { border-left-color:var(--red); }
+  ul.reasons.legitimate li { border-left-color:var(--green); }
+  .shap-row { display:flex; align-items:center; gap:12px; padding:5px 0; font-size:12.5px; }
+  .shap-label { width:150px; flex-shrink:0; color:var(--muted); }
+  .shap-track { flex:1; height:8px; background:var(--panel2); border-radius:4px; overflow:hidden; }
+  .shap-fill { height:100%; border-radius:4px; }
+  .shap-pct { width:64px; text-align:right; font-family:'JetBrains Mono',monospace; font-size:12px; flex-shrink:0; }
+  .feedback { display:flex; align-items:center; gap:10px; margin-top:20px; font-size:12.5px; color:var(--muted); }
+  .ghost { background:var(--panel2); color:var(--text); border:1px solid var(--line); border-radius:9px; padding:7px 13px;
+    font:600 12px 'Manrope',sans-serif; cursor:pointer; }
+  .ghost:hover { border-color:var(--blue); color:var(--blue); }
+
+  /* donut */
+  .donut { position:relative; width:190px; height:190px; margin:8px auto 14px; }
+  .donut-c { position:absolute; inset:0; display:grid; place-items:center; text-align:center; pointer-events:none; }
+  .donut-n { font-size:34px; font-weight:800; line-height:1; }
+  .donut-l { font-size:11px; color:var(--muted); margin-top:4px; }
+  .kv { display:grid; gap:10px; margin-top:6px; }
+  .kv div { display:flex; justify-content:space-between; gap:12px; font-size:12.5px; color:var(--muted); }
+  .kv b { color:var(--text); font-weight:600; text-align:right; }
+
+  /* overview + recent */
+  .chart-wrap { height:250px; position:relative; }
+  .recent { display:grid; gap:16px; }
+  .recent-item { display:grid; grid-template-columns:34px 1fr auto; gap:12px; align-items:center; }
+  .rbadge { width:34px; height:34px; border-radius:9px; display:grid; place-items:center; font-weight:800; font-size:14px; }
+  .rurl { font:500 12px 'JetBrains Mono',monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .rbar { height:4px; border-radius:2px; background:var(--line); margin-top:7px; }
+  .rbar i { display:block; height:100%; border-radius:2px; }
+  .rscore { font:600 12px 'JetBrains Mono',monospace; }
+
+  /* table */
+  .tbl-scroll { max-height:340px; overflow:auto; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th { text-align:left; color:var(--muted); font-weight:600; font-size:11.5px; padding:0 10px 10px; }
+  td { padding:11px 10px; border-top:1px solid var(--line); }
+  td.u { font:500 12px 'JetBrains Mono',monospace; max-width:440px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .tag { font-size:11px; font-weight:700; padding:3px 10px; border-radius:999px; }
+  .empty { color:var(--muted); font-size:13px; padding:18px 0; }
+
+  @media (max-width:1150px) { .stats { grid-template-columns:repeat(3,1fr); } }
+  @media (max-width:900px) {
+    .app { grid-template-columns:1fr; }
+    .side { position:static; height:auto; flex-direction:row; align-items:center; padding:12px 16px; gap:14px; overflow-x:auto; }
+    .model-card { display:none; }
+    nav { display:flex; gap:4px; }
+    nav a { white-space:nowrap; }
+    .grid2 { grid-template-columns:1fr; }
+    .main { padding:20px 16px 50px; }
   }
-  input[type="text"]:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
-  button.primary {
-    font-family: inherit; font-size: 14px; font-weight: 500; padding: 11px 20px;
-    background: var(--accent); color: #fff; border: none; border-radius: var(--radius);
-    cursor: pointer;
-  }
-  button.primary:hover { background: #16283f; }
-  button.primary:disabled { opacity: .6; cursor: default; }
-
-  .toggle-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 13px; color: var(--text-muted); }
-  .toggle-row input { accent-color: var(--accent); }
-
-  section.result { margin-top: 40px; display: none; }
-  .verdict-line { display: flex; align-items: baseline; gap: 14px; }
-  .verdict-word { font-size: 22px; font-weight: 600; letter-spacing: -0.01em; }
-  .verdict-word.phishing { color: var(--danger); }
-  .verdict-word.legitimate { color: var(--safe); }
-  .risk-num { font-family: 'IBM Plex Mono', monospace; font-size: 15px; color: var(--text-muted); }
-  .risk-bar-track { height: 6px; background: var(--border); border-radius: 3px; margin-top: 10px; overflow: hidden; }
-  .risk-bar-fill { height: 100%; border-radius: 3px; }
-  .scanned-url { margin-top: 10px; font-size: 13px; color: var(--text-muted); word-break: break-all; }
-
-  h2.section-label { font-size: 13px; font-weight: 600; color: var(--text); margin: 28px 0 10px; }
-  ul.reasons { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--border); }
-  ul.reasons li { padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 13.5px; display: flex; gap: 8px; }
-  ul.reasons li::before { content: "–"; color: var(--text-muted); flex-shrink: 0; }
-
-  .shap-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; font-size: 13px; }
-  .shap-label { width: 150px; flex-shrink: 0; color: var(--text-muted); }
-  .shap-bar-track { flex: 1; background: var(--border); border-radius: 3px; height: 8px; overflow: hidden; }
-  .shap-bar-fill { height: 100%; border-radius: 3px; }
-  .shap-pct { width: 78px; flex-shrink: 0; text-align: right; color: var(--text-muted); font-family: 'IBM Plex Mono', monospace; font-size: 12px; }
-
-  .feedback-row { display: flex; align-items: center; gap: 10px; margin-top: 20px; font-size: 13px; color: var(--text-muted); }
-  button.ghost {
-    font-family: inherit; font-size: 12.5px; padding: 6px 12px; background: var(--surface);
-    border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer; color: var(--text);
-  }
-  button.ghost:hover { border-color: var(--accent); color: var(--accent); }
-
-  .divider { border: none; border-top: 1px solid var(--border); margin: 48px 0 28px; }
-
-  .split { display: grid; grid-template-columns: 1.2fr 1fr; gap: 40px; }
-  @media (max-width: 700px) { .split { grid-template-columns: 1fr; } }
-
-  table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  table th { text-align: left; font-weight: 500; color: var(--text-muted); font-size: 11.5px;
-    padding: 0 0 8px; border-bottom: 1px solid var(--border); }
-  table td { padding: 9px 0; border-bottom: 1px solid var(--border); vertical-align: top; }
-  table td.url-cell { font-family: 'IBM Plex Mono', monospace; font-size: 12px; max-width: 260px;
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .badge { display: inline-block; font-size: 11px; font-weight: 500; padding: 2px 7px; border-radius: 3px; }
-  .badge.phishing { background: var(--danger-bg); color: var(--danger); }
-  .badge.legitimate { background: var(--safe-bg); color: var(--safe); }
-  .history-scroll { max-height: 320px; overflow-y: auto; }
-
-  .empty { color: var(--text-muted); font-size: 13px; padding: 20px 0; }
+  @media (max-width:560px) { td.u { max-width:150px; } .stats { grid-template-columns:repeat(2,1fr); } .scan-form { flex-direction:column; } .btn { padding:13px; } .shap-label { width:110px; } }
 </style>
 </head>
 <body>
+<div class="app">
 
-<div class="wrap">
-
-  <header>
-    <h1>Phishing URL Detector</h1>
-    <span class="meta mono" id="model-badge">loading…</span>
-  </header>
-
-  <form id="scan-form" class="scan-form">
-    <input type="text" id="url-input" placeholder="paste a url to check, e.g. https://example.com/login" required>
-    <button type="submit" class="primary" id="scan-btn">Check</button>
-  </form>
-  <label class="toggle-row">
-    <input type="checkbox" id="deep-scan-toggle" checked>
-    deep scan — checks domain age and SSL, adds a couple seconds
-  </label>
-
-  <section class="result" id="result-section">
-    <div class="verdict-line">
-      <span class="verdict-word" id="verdict-word">—</span>
-      <span class="risk-num" id="risk-num">—</span>
+  <aside class="side">
+    <div class="brand">
+      <span class="brand-mark"><svg viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/></svg></span>
+      PHISHSCAN
     </div>
-    <div class="risk-bar-track"><div class="risk-bar-fill" id="risk-bar-fill"></div></div>
-    <div class="scanned-url mono" id="url-echo"></div>
+    <nav>
+      <a href="#top" class="active"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Dashboard</a>
+      <a href="#scan"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4-4"/></svg>Scan URL</a>
+      <a href="#overview"><svg viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>Activity</a>
+      <a href="#history"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>History</a>
+    </nav>
+    <div class="model-card">
+      <div class="k">Active model</div>
+      <div class="v" id="m-name">—</div>
+      <div class="t mono">recall-tuned · threshold <span id="m-thresh">—</span></div>
+    </div>
+  </aside>
 
-    <h2 class="section-label">Why</h2>
-    <ul class="reasons" id="reasons-list"></ul>
-
-    <div id="shap-section" style="display:none;">
-      <h2 class="section-label">Model signal</h2>
-      <div id="shap-list"></div>
+  <main class="main" id="top">
+    <div class="topbar">
+      <h1>Dashboard</h1>
+      <div class="status"><span class="dot"></span>Detection engine active</div>
     </div>
 
-    <div class="feedback-row">
-      <span>Was this right?</span>
-      <button class="ghost" onclick="sendFeedback('legitimate')">Yes, safe</button>
-      <button class="ghost" onclick="sendFeedback('phishing')">No, it's phishing</button>
-      <span id="feedback-ack"></span>
+    <section class="stats">
+      <div class="stat"><div><div class="lbl">Total scans</div><div class="val" id="s-total">0</div></div>
+        <span class="ico" style="background:linear-gradient(135deg,#3B76FF,#5b8bff)"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4-4"/></svg></span></div>
+      <div class="stat"><div><div class="lbl">Phishing flagged</div><div class="val" id="s-phish">0</div></div>
+        <span class="ico" style="background:linear-gradient(135deg,#F0506E,#ff7a8f)"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></span></div>
+      <div class="stat"><div><div class="lbl">Legitimate</div><div class="val" id="s-legit">0</div></div>
+        <span class="ico" style="background:linear-gradient(135deg,#22C58B,#4ddcaa)"><svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></span></div>
+      <div class="stat"><div><div class="lbl">Avg risk score</div><div class="val" id="s-avg">0%</div></div>
+        <span class="ico" style="background:linear-gradient(135deg,#8B6CFF,#a992ff)"><svg viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg></span></div>
+      <div class="stat"><div><div class="lbl">Feedback received</div><div class="val" id="s-fb">0</div></div>
+        <span class="ico" style="background:linear-gradient(135deg,#F6BE3A,#ffd36b)"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></svg></span></div>
+    </section>
+
+    <div class="grid2" id="scan">
+      <section class="panel">
+        <h2>Analyze a URL <small>features → model → verdict</small></h2>
+        <form class="scan-form" id="scan-form">
+          <input type="text" id="url-input" placeholder="https://example.com/login" required autocomplete="off">
+          <button class="btn" id="scan-btn" type="submit">Analyze</button>
+        </form>
+        <label class="toggle"><input type="checkbox" id="deep-scan" checked> Deep scan — checks domain age &amp; SSL (adds a couple of seconds)</label>
+
+        <div class="placeholder" id="placeholder">Paste a URL above. You'll get a verdict, the reasons behind it, and which model features drove the score.</div>
+
+        <div id="result">
+          <div class="verdict"><span class="pill" id="v-pill">—</span></div>
+          <div class="url-echo mono" id="v-url"></div>
+          <div class="sub">Why</div>
+          <ul class="reasons" id="reasons"></ul>
+          <div id="shap-section">
+            <div class="sub">Model feature contributions</div>
+            <div id="shap-list"></div>
+          </div>
+          <div class="feedback">
+            <span>Was this right?</span>
+            <button class="ghost" onclick="sendFeedback('legitimate')">Yes, safe</button>
+            <button class="ghost" onclick="sendFeedback('phishing')">No, it's phishing</button>
+            <span id="fb-ack"></span>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Risk score <small>current scan</small></h2>
+        <div class="donut">
+          <canvas id="donut"></canvas>
+          <div class="donut-c"><div><div class="donut-n" id="d-num">0%</div><div class="donut-l">risk</div></div></div>
+        </div>
+        <div class="kv">
+          <div>Verdict <b id="k-verdict">—</b></div>
+          <div>Model <b id="k-model">—</b></div>
+          <div>Decision threshold <b class="mono" id="k-thresh">—</b></div>
+        </div>
+      </section>
     </div>
-  </section>
 
-  <hr class="divider">
+    <div class="grid2" id="overview">
+      <section class="panel">
+        <h2>Overview <small>risk score per scan · red dashed = threshold</small></h2>
+        <div class="chart-wrap"><canvas id="trend"></canvas></div>
+      </section>
+      <section class="panel">
+        <h2>Recent scans <small>latest 5</small></h2>
+        <div class="recent" id="recent"></div>
+      </section>
+    </div>
 
-  <div class="split">
-    <div>
-      <h2 class="section-label">History</h2>
-      <div class="history-scroll">
+    <section class="panel" id="history">
+      <h2>Scan history <small>latest 30</small></h2>
+      <div class="tbl-scroll">
         <table>
-          <thead><tr><th>URL</th><th>Verdict</th><th>Score</th></tr></thead>
+          <thead><tr><th>URL</th><th>Verdict</th><th>Risk</th><th>Time (UTC)</th></tr></thead>
           <tbody id="history-body"></tbody>
         </table>
       </div>
-      <div class="empty" id="history-empty" style="display:none;">No scans yet.</div>
-    </div>
-    <div>
-      <h2 class="section-label">Scans over time</h2>
-      <canvas id="timeseries-chart" height="180"></canvas>
-    </div>
-  </div>
-
+      <div class="empty" id="history-empty" style="display:none">No scans yet — analyze a URL above.</div>
+    </section>
+  </main>
 </div>
 
 <script>
-let lastScanId = null;
-let tsChart;
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const C = { red:'#F0506E', green:'#22C58B', blue:'#3B76FF', muted:'#7D8BB0', line:'#1C2A4E', track:'#1A2748' };
+const hasChart = typeof Chart !== 'undefined';
+if (hasChart) { Chart.defaults.color = C.muted; Chart.defaults.font.family = "'Manrope', sans-serif"; }
+let lastScanId = null, donutChart = null, trendChart = null, THRESH = 0.5;
 
 async function loadHealth() {
-  const r = await fetch('/api/v1/health');
-  const d = await r.json();
-  document.getElementById('model-badge').textContent = `${d.model} · threshold ${d.threshold}`;
+  const d = await (await fetch('/api/v1/health')).json();
+  THRESH = d.threshold;
+  $('m-name').textContent = d.model.replace('_', ' ');
+  $('m-thresh').textContent = (d.threshold * 100).toFixed(1) + '%';
+  $('k-thresh').textContent = (d.threshold * 100).toFixed(1) + '%';
+  $('k-model').textContent = d.model.replace('_', ' ');
 }
 
-async function scanUrl(url, deepScan) {
-  const res = await fetch('/api/v1/scan', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url, deep_scan: deepScan })
-  });
-  if (!res.ok) throw new Error((await res.json()).error || 'Scan failed');
-  return res.json();
+async function loadSummary() {
+  const s = await (await fetch('/api/v1/stats/summary')).json();
+  $('s-total').textContent = s.total; $('s-phish').textContent = s.phishing;
+  $('s-legit').textContent = s.legitimate; $('s-avg').textContent = s.avg_risk + '%';
+  $('s-fb').textContent = s.feedback;
 }
 
-function showResult(data) {
-  lastScanId = data.scan_id;
-  document.getElementById('result-section').style.display = 'block';
-
-  const word = document.getElementById('verdict-word');
-  const isPhish = data.prediction === 'phishing';
-  word.textContent = isPhish ? 'Phishing' : 'Legitimate';
-  word.className = 'verdict-word ' + data.prediction;
-
-  document.getElementById('risk-num').textContent = data.risk_score + '% risk';
-  document.getElementById('url-echo').textContent = data.url;
-
-  const fill = document.getElementById('risk-bar-fill');
-  fill.style.width = data.risk_score + '%';
-  fill.style.background = isPhish ? 'var(--danger)' : 'var(--safe)';
-
-  const list = document.getElementById('reasons-list');
-  list.innerHTML = '';
-  data.reasons.forEach(r => {
-    const li = document.createElement('li');
-    li.textContent = r;
-    list.appendChild(li);
-  });
-
-  renderShapBreakdown(data.shap_explanation || []);
-  document.getElementById('feedback-ack').textContent = '';
-}
-
-function renderShapBreakdown(items) {
-  const section = document.getElementById('shap-section');
-  const list = document.getElementById('shap-list');
-  list.innerHTML = '';
-  if (!items.length) { section.style.display = 'none'; return; }
-  section.style.display = 'block';
-  items.forEach(item => {
-    const row = document.createElement('div');
-    row.className = 'shap-row';
-    const color = item.direction === 'increases_risk' ? 'var(--danger)' : 'var(--safe)';
-    const sign = item.direction === 'increases_risk' ? '+' : '−';
-    row.innerHTML = `
-      <span class="shap-label">${item.label}</span>
-      <div class="shap-bar-track"><div class="shap-bar-fill" style="width:${item.contribution_pct}%;background:${color};"></div></div>
-      <span class="shap-pct">${sign}${item.contribution_pct}%</span>`;
-    list.appendChild(row);
+function drawDonut(score, verdict) {
+  if (!hasChart) return;
+  const color = verdict === 'phishing' ? C.red : verdict === 'legitimate' ? C.green : C.track;
+  if (donutChart) donutChart.destroy();
+  donutChart = new Chart($('donut'), {
+    type: 'doughnut',
+    data: { datasets: [{ data: [score, 100 - score], backgroundColor: [color, C.track], borderWidth: 0, borderRadius: 6 }] },
+    options: { cutout: '80%', plugins: { legend: { display: false }, tooltip: { enabled: false } }, animation: { duration: 500 } }
   });
 }
 
-async function sendFeedback(label) {
-  if (!lastScanId) return;
-  await fetch('/api/v1/feedback', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ scan_id: lastScanId, user_label: label })
-  });
-  document.getElementById('feedback-ack').textContent = 'Recorded, thanks.';
-}
-
-async function loadHistory() {
-  const res = await fetch('/api/v1/scans?limit=25');
-  const rows = await res.json();
-  const body = document.getElementById('history-body');
-  const empty = document.getElementById('history-empty');
-  body.innerHTML = '';
-  if (!rows.length) { empty.style.display = 'block'; return; }
-  empty.style.display = 'none';
-  rows.forEach(r => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `<td class="url-cell" title="${r.url}">${r.url}</td>
-      <td><span class="badge ${r.prediction}">${r.prediction}</span></td>
-      <td class="mono">${r.risk_score}%</td>`;
-    body.appendChild(tr);
-  });
-}
-
-async function loadTimeseries() {
-  const res = await fetch('/api/v1/stats/timeseries');
-  const rows = await res.json();
-  const ctx = document.getElementById('timeseries-chart');
-  if (tsChart) tsChart.destroy();
-  tsChart = new Chart(ctx, {
-    type: 'bar',
+function drawTrend(rows) {
+  if (!hasChart) return;
+  if (trendChart) trendChart.destroy();
+  trendChart = new Chart($('trend'), {
+    type: 'line',
     data: {
-      labels: rows.map(r => r.day),
+      labels: rows.map(r => '#' + r.id),
       datasets: [
-        { label: 'Phishing', data: rows.map(r => r.phishing), backgroundColor: '#B3261E' },
-        { label: 'Legitimate', data: rows.map(r => r.legitimate), backgroundColor: '#1F7A4C' }
+        { label: 'Risk score', data: rows.map(r => r.risk_score), borderColor: C.blue, backgroundColor: 'rgba(59,118,255,.12)',
+          fill: true, tension: .2, borderWidth: 2, pointRadius: 4, pointBorderWidth: 0,
+          pointBackgroundColor: rows.map(r => r.prediction === 'phishing' ? C.red : C.green) },
+        { label: 'Threshold', data: rows.map(() => THRESH * 100), borderColor: C.red, borderDash: [5, 5], borderWidth: 1, pointRadius: 0, fill: false }
       ]
     },
     options: {
-      responsive: true,
-      plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { family: 'IBM Plex Sans', size: 11 }, color: '#6B6E76' } } },
-      scales: {
-        x: { stacked: true, ticks: { color: '#6B6E76', font: { size: 10 } }, grid: { display: false } },
-        y: { stacked: true, ticks: { color: '#6B6E76', font: { size: 10 } }, grid: { color: '#E3E1DB' } }
-      }
+      maintainAspectRatio: false,
+      scales: { y: { min: 0, max: 100, ticks: { callback: v => v + '%' }, grid: { color: C.line } }, x: { grid: { display: false } } },
+      plugins: { legend: { display: false }, tooltip: { callbacks: { afterLabel: c => c.datasetIndex === 0 ? rows[c.dataIndex].url : '' } } }
     }
   });
 }
 
-document.getElementById('scan-form').addEventListener('submit', async (e) => {
+async function loadHistory() {
+  const rows = await (await fetch('/api/v1/scans?limit=30')).json();
+  $('history-body').innerHTML = rows.map(r =>
+    `<tr><td class="u" title="${esc(r.url)}">${esc(r.url)}</td>
+      <td><span class="tag ${esc(r.prediction)}">${esc(r.prediction)}</span></td>
+      <td class="mono">${r.risk_score}%</td><td class="mono muted">${esc(r.submitted_at)}</td></tr>`).join('');
+  $('history-empty').style.display = rows.length ? 'none' : 'block';
+
+  $('recent').innerHTML = rows.slice(0, 5).map(r => {
+    const bad = r.prediction === 'phishing', col = bad ? C.red : C.green;
+    return `<div class="recent-item">
+      <span class="rbadge" style="background:${bad ? 'rgba(240,80,110,.15)' : 'rgba(34,197,139,.15)'};color:${col}">${bad ? '!' : '✓'}</span>
+      <div style="min-width:0"><div class="rurl" title="${esc(r.url)}">${esc(r.url)}</div>
+        <div class="rbar"><i style="width:${r.risk_score}%;background:${col}"></i></div></div>
+      <span class="rscore">${r.risk_score}%</span></div>`;
+  }).join('') || '<div class="empty">No scans yet.</div>';
+
+  drawTrend(rows.slice().reverse());
+}
+
+function showResult(d) {
+  lastScanId = d.scan_id;
+  $('placeholder').style.display = 'none';
+  $('result').style.display = 'block';
+  const bad = d.prediction === 'phishing';
+  const pill = $('v-pill'); pill.textContent = bad ? 'Phishing' : 'Legitimate'; pill.className = 'pill ' + d.prediction;
+  $('v-url').textContent = d.url;
+  const ul = $('reasons'); ul.className = 'reasons ' + d.prediction;
+  ul.innerHTML = d.reasons.map(r => `<li>${esc(r)}</li>`).join('');
+
+  const shap = d.shap_explanation || [];
+  $('shap-section').style.display = shap.length ? 'block' : 'none';
+  $('shap-list').innerHTML = shap.map(s => {
+    const up = s.direction === 'increases_risk', col = up ? C.red : C.green;
+    return `<div class="shap-row"><span class="shap-label">${esc(s.label)}</span>
+      <div class="shap-track"><div class="shap-fill" style="width:${s.contribution_pct}%;background:${col}"></div></div>
+      <span class="shap-pct" style="color:${col}">${up ? '+' : '−'}${s.contribution_pct}%</span></div>`;
+  }).join('');
+
+  $('d-num').textContent = d.risk_score + '%';
+  $('k-verdict').textContent = bad ? 'Phishing' : 'Legitimate';
+  drawDonut(d.risk_score, d.prediction);
+  $('fb-ack').textContent = '';
+}
+
+async function sendFeedback(label) {
+  if (!lastScanId) return;
+  await fetch('/api/v1/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ scan_id: lastScanId, user_label: label }) });
+  $('fb-ack').textContent = 'Recorded — thanks.';
+  loadSummary();
+}
+
+$('scan-form').addEventListener('submit', async e => {
   e.preventDefault();
-  const url = document.getElementById('url-input').value.trim();
-  const deep = document.getElementById('deep-scan-toggle').checked;
-  const btn = document.getElementById('scan-btn');
-  btn.disabled = true; btn.textContent = 'Checking…';
+  const btn = $('scan-btn');
+  btn.disabled = true; btn.textContent = 'Analyzing…';
   try {
-    const data = await scanUrl(url, deep);
-    showResult(data);
-    await loadHistory();
-    await loadTimeseries();
-  } catch (err) {
-    alert(err.message);
-  } finally {
-    btn.disabled = false; btn.textContent = 'Check';
-  }
+    const res = await fetch('/api/v1/scan', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: $('url-input').value.trim(), deep_scan: $('deep-scan').checked }) });
+    if (!res.ok) throw new Error((await res.json()).error || 'Scan failed');
+    showResult(await res.json());
+    await Promise.all([loadHistory(), loadSummary()]);
+  } catch (err) { alert(err.message); }
+  finally { btn.disabled = false; btn.textContent = 'Analyze'; }
 });
 
-loadHealth();
-loadHistory();
-loadTimeseries();
+document.querySelectorAll('nav a').forEach(a => a.addEventListener('click', () => {
+  document.querySelectorAll('nav a').forEach(x => x.classList.remove('active')); a.classList.add('active');
+}));
+
+(async () => { await loadHealth(); drawDonut(0, null); loadSummary(); loadHistory(); })();
 </script>
 </body>
 </html>

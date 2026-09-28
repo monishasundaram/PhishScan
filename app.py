@@ -283,9 +283,29 @@ def feedback():
     return jsonify({"status": "recorded"})
 
 
+@app.route("/api/v1/stats/summary", methods=["GET"])
+def stats_summary():
+    db = get_db()
+    row = db.execute(
+        """SELECT COUNT(*) AS total,
+                  SUM(CASE WHEN prediction='phishing' THEN 1 ELSE 0 END) AS phishing,
+                  SUM(CASE WHEN prediction='legitimate' THEN 1 ELSE 0 END) AS legitimate,
+                  AVG(risk_score) AS avg_risk
+           FROM scans"""
+    ).fetchone()
+    feedback_count = db.execute("SELECT COUNT(*) AS c FROM feedback").fetchone()["c"]
+    return jsonify({
+        "total": row["total"] or 0,
+        "phishing": row["phishing"] or 0,
+        "legitimate": row["legitimate"] or 0,
+        "avg_risk": round(row["avg_risk"] or 0, 1),
+        "feedback": feedback_count,
+    })
+
+
 @app.route("/api/v1/health", methods=["GET"])
 def health():
-    return jsonify({"status": "ok", "model": MODEL_NAME, "threshold": THRESHOLD})
+    return jsonify({"status": "ok", "model": MODEL_NAME, "threshold": round(THRESHOLD, 3)})
 
 
 if __name__ == "__main__":
