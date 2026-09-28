@@ -13,12 +13,6 @@
 
 </div>
 
-<!--
-  Replace this with a real screenshot of the dashboard before pushing —
-  a visible screenshot is the single biggest thing that makes a README
-  land. See the "Quick start" section for how to grab one.
--->
-<p align="center"><em>📸 screenshot.png goes here</em></p>
 
 ---
 
